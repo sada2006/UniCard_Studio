@@ -1,0 +1,6 @@
+fullName,rollNo,role,course,department,bloodGroup,validTill,phone,address,photoUrl,themeId
+Aditya Sharma,24CS-1089,student,B.Tech - Computer Science,Dept. of Computing & Intelligence,B+,2028-06-30,+1 (555) 349-2810,"42 University Blvd, Hall B",https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80,cse
+Dr. Rajesh Kulkarni,FAC-9012,faculty,Senior Professor of Computing,Artificial Intelligence & Data Science,O+,2030-12-31,+1 (555) 234-5678,"Staff Enclave, Suite 402",https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80,aids
+Sarah Jenkins,PHD-4050,scholar,Post-Doctoral Fellow (Genomics),Center for Bio-Innovation,A-,2027-06-30,+1 (555) 901-2345,"Research Annex, Lab 12B",https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80,biotech
+Vikramaditya Rao,INT-1102,trainee,Robotics Summer Intern,Mechanical & Robotics Engg.,AB+,2026-12-31,+1 (555) 345-6789,"Westgate Residential Hall 3",https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80,mech
+Kavya Sundaram,ADM-5521,staff,Campus Infrastructure Coordinator,Electronics & Communication,O-,2029-06-30,+1 (555) 678-9012,"Operations Wing, Office 14",https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80,ece
