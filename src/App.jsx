@@ -842,7 +842,7 @@ const WebcamCaptureModal = ({ isOpen, onClose, onCapture }) => {
 // ==========================================
 // 5. METRO-STYLE CONTACTLESS NFC TURNSTILE
 // ==========================================
-const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
+const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig, blacklistedCards = [] }) => {
   const [turnstileState, setTurnstileState] = useState('ready');
   const [tapTimestamp, setTapTimestamp] = useState(null);
   const [terminalLocation, setTerminalLocation] = useState('LH-101 (Lecture Hall Classroom)');
@@ -861,9 +861,14 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
     setTurnstileState('tapping');
     setTapTimestamp(new Date().toLocaleTimeString());
     setTimeout(() => {
-      playMetroBeep('success');
-      setTurnstileState('granted');
-      setTapCount((c) => c + 1);
+      if (blacklistedCards.includes(student.rollNo)) {
+        playMetroBeep('error');
+        setTurnstileState('revoked');
+      } else {
+        playMetroBeep('success');
+        setTurnstileState('granted');
+        setTapCount((c) => c + 1);
+      }
     }, 350);
   };
 
@@ -892,7 +897,7 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
         <div className="bg-stone-900 px-5 py-3 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              turnstileState === 'granted' ? 'bg-emerald-400' : turnstileState === 'fraud' ? 'bg-rose-500 animate-ping' : 'bg-sky-400 animate-pulse'
+              turnstileState === 'granted' ? 'bg-emerald-400' : turnstileState === 'fraud' || turnstileState === 'revoked' ? 'bg-rose-500 animate-ping' : 'bg-sky-400 animate-pulse'
             }`} />
             <select
               value={terminalLocation}
@@ -923,25 +928,25 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
             className={`relative w-40 h-40 rounded-3xl border-4 transition-all duration-300 flex flex-col items-center justify-center cursor-pointer select-none group shadow-inner ${
               turnstileState === 'granted'
                 ? 'border-emerald-500 bg-emerald-50 ring-8 ring-emerald-500/20'
-                : turnstileState === 'fraud'
+                : turnstileState === 'fraud' || turnstileState === 'revoked'
                 ? 'border-rose-500 bg-rose-50 ring-8 ring-rose-500/20'
                 : 'border-stone-800 bg-stone-900 hover:border-sky-500 ring-4 ring-stone-200'
             }`}
           >
             <div className="text-white mb-1.5">
               <svg className={`w-12 h-12 mx-auto transition-transform ${
-                turnstileState === 'granted' ? 'text-emerald-600 scale-110' : turnstileState === 'fraud' ? 'text-rose-600 scale-110' : 'text-sky-400 group-hover:scale-110'
+                turnstileState === 'granted' ? 'text-emerald-600 scale-110' : turnstileState === 'fraud' || turnstileState === 'revoked' ? 'text-rose-600 scale-110' : 'text-sky-400 group-hover:scale-110'
               }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
               </svg>
             </div>
             <span className={`text-[11px] font-black uppercase tracking-widest ${
-              turnstileState === 'granted' ? 'text-emerald-800' : turnstileState === 'fraud' ? 'text-rose-800' : 'text-white'
+              turnstileState === 'granted' ? 'text-emerald-800' : turnstileState === 'revoked' ? 'text-rose-800' : turnstileState === 'fraud' ? 'text-rose-800' : 'text-white'
             }`}>
-              {turnstileState === 'granted' ? 'SCANNER UNLOCKED' : turnstileState === 'fraud' ? 'ACCESS BLOCKED' : 'TAP CARD HERE'}
+              {turnstileState === 'granted' ? 'SCANNER UNLOCKED' : turnstileState === 'revoked' ? 'CREDENTIAL REVOKED' : turnstileState === 'fraud' ? 'ACCESS BLOCKED' : 'TAP CARD HERE'}
             </span>
             <span className={`text-[9px] font-mono mt-0.5 ${
-              turnstileState === 'granted' ? 'text-emerald-600' : turnstileState === 'fraud' ? 'text-rose-600' : 'text-stone-400'
+              turnstileState === 'granted' ? 'text-emerald-600' : turnstileState === 'fraud' || turnstileState === 'revoked' ? 'text-rose-600' : 'text-stone-400'
             }`}>
               13.56 MHz RFID / NFC
             </span>
@@ -972,6 +977,19 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
                   <span>ID: {student.rollNo || 'ID-ACTIVE'}</span>
                 </div>
                 <div className="text-[9px] text-emerald-700">Mifare DESFire UID: 04:A2:8B:19:3F • Entry Logged to {terminalLocation.split(' ')[0]}</div>
+              </div>
+            )}
+
+            {turnstileState === 'revoked' && (
+              <div className="p-2.5 bg-rose-100 border border-rose-300 rounded-lg text-rose-900">
+                <div className="flex items-center justify-between font-black text-xs">
+                  <span>🔴 ACCESS DENIED: REVOKED / REPORTED LOST</span>
+                  <span>TURNSTILE LOCKED</span>
+                </div>
+                <div className="mt-1 text-[10px] text-rose-800">
+                  Card <strong>{student.rollNo || 'ID'}</strong> was reported lost/stolen and is permanently blacklisted by the Registrar!
+                </div>
+                <div className="text-[9px] text-rose-700 font-bold mt-0.5">Physical gate locked. Security breach logged at {terminalLocation.split(' ')[0]}.</div>
               </div>
             )}
 
@@ -1089,6 +1107,7 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
 // 6. CAMPUS SSO PORTAL AUTH MODAL
 // ==========================================
 const CampusAuthModal = ({ isOpen, onClose, currentRole, onSwitchRole }) => {
+  const [targetRole, setTargetRole] = useState(currentRole === 'admin' ? 'student' : 'admin');
   const [email, setEmail] = useState('admin@apex.edu');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -1099,40 +1118,78 @@ const CampusAuthModal = ({ isOpen, onClose, currentRole, onSwitchRole }) => {
       setError('');
       setSuccess('');
       setPassword('');
-      setEmail('admin@apex.edu');
+      if (currentRole === 'admin') {
+        setTargetRole('admin');
+        setEmail('admin@apex.edu');
+      } else {
+        setTargetRole('admin');
+        setEmail('admin@apex.edu');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, currentRole]);
 
   if (!isOpen) return null;
 
-  const handleAdminLogin = (e) => {
+  const handleSelectRoleTab = (role) => {
+    setTargetRole(role);
+    setError('');
+    setSuccess('');
+    if (role === 'admin') {
+      setEmail('admin@apex.edu');
+      setPassword('');
+    } else {
+      setEmail('student@apex.edu');
+      setPassword('');
+    }
+  };
+
+  const handleLoginSubmit = (e) => {
     e?.preventDefault();
-    if (email.trim().toLowerCase() === 'admin@apex.edu' && password === 'admin123') {
-      setError('');
-      setSuccess('✓ Access Granted: Registrar Authority Confirmed!');
+    setError('');
+
+    if (targetRole === 'admin') {
+      if (email.trim().toLowerCase() === 'admin@apex.edu' && password === 'admin123') {
+        setSuccess('✓ Access Granted: Registrar Authority Confirmed!');
+        setTimeout(() => {
+          onSwitchRole('admin');
+          onClose();
+        }, 500);
+      } else {
+        setError('Invalid admin credentials! Use demo: admin@apex.edu / admin123');
+      }
+    } else {
+      if (email.trim().toLowerCase() === 'student@apex.edu' && password === 'student123') {
+        setSuccess('✓ Access Granted: Welcome to Student Self-Service Portal!');
+        setTimeout(() => {
+          onSwitchRole('student');
+          onClose();
+        }, 500);
+      } else {
+        setError('Invalid student credentials! Use demo: student@apex.edu / student123');
+      }
+    }
+  };
+
+  const handleQuickAutoFill = (role) => {
+    setTargetRole(role);
+    setError('');
+    if (role === 'admin') {
+      setEmail('admin@apex.edu');
+      setPassword('admin123');
+      setSuccess('✓ Auto-filled Registrar Admin credentials! Logging in...');
       setTimeout(() => {
         onSwitchRole('admin');
         onClose();
       }, 500);
     } else {
-      setError('Invalid passkey! Use demo: admin@apex.edu / admin123');
+      setEmail('student@apex.edu');
+      setPassword('student123');
+      setSuccess('✓ Auto-filled Student credentials! Logging in...');
+      setTimeout(() => {
+        onSwitchRole('student');
+        onClose();
+      }, 500);
     }
-  };
-
-  const handleQuickAutoFill = () => {
-    setEmail('admin@apex.edu');
-    setPassword('admin123');
-    setError('');
-    setSuccess('✓ Auto-Filled Demo Credentials! Unlocking...');
-    setTimeout(() => {
-      onSwitchRole('admin');
-      onClose();
-    }, 450);
-  };
-
-  const handleSwitchToStudent = () => {
-    onSwitchRole('student');
-    onClose();
   };
 
   return (
@@ -1157,129 +1214,130 @@ const CampusAuthModal = ({ isOpen, onClose, currentRole, onSwitchRole }) => {
             <div>
               <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Current Session</span>
               <span className="text-xs font-black text-stone-800">
-                {currentRole === 'admin' ? '🛡️ Registrar Admin Portal (Full Access)' : '👤 Student / Member Portal (Restricted)'}
+                {currentRole === 'admin' ? '🛡️ Registrar Admin Portal (Full Clearance)' : '👤 Student / Member Portal (View Mode)'}
               </span>
             </div>
-            {currentRole === 'admin' ? (
-              <button
-                onClick={handleSwitchToStudent}
-                className="px-2.5 py-1 bg-white border border-stone-200 hover:bg-stone-100 text-stone-700 text-xs font-bold rounded-lg transition shadow-2xs cursor-pointer"
-              >
-                Logout to Student
-              </button>
-            ) : (
-              <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px] font-bold">
-                Student Mode
-              </span>
-            )}
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+              currentRole === 'admin' ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-800'
+            }`}>
+              {currentRole === 'admin' ? 'Authority Active' : 'Self-Service'}
+            </span>
           </div>
 
-          {/* Admin Credentials Form */}
-          {currentRole !== 'admin' ? (
-            <div className="space-y-3 pt-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-black text-stone-900 block">
-                    Registrar & Admin Authentication
-                  </span>
-                  <span className="text-[11px] text-stone-500">
-                    Required to unlock Batch CSV generation & authority signatures
-                  </span>
-                </div>
-              </div>
+          {/* Role Mode Tabs */}
+          <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => handleSelectRoleTab('admin')}
+              className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                targetRole === 'admin' ? 'bg-white shadow-xs text-stone-900' : 'text-stone-500 hover:text-stone-800'
+              }`}
+            >
+              <span>🛡️</span>
+              <span>Registrar Admin</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectRoleTab('student')}
+              className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                targetRole === 'student' ? 'bg-white shadow-xs text-stone-900' : 'text-stone-500 hover:text-stone-800'
+              }`}
+            >
+              <span>👤</span>
+              <span>Enrolled Student</span>
+            </button>
+          </div>
 
-              {/* Fast 1-Click Auto Fill Demo Chip */}
-              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono text-amber-800 font-bold block">
-                    DEMO: admin@apex.edu • PASS: admin123
-                  </span>
-                  <span className="text-[9px] text-amber-600">Quick-fill for live competition presentation</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleQuickAutoFill}
-                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition cursor-pointer shadow-2xs shrink-0"
-                >
-                  ⚡ Auto-Fill Demo
-                </button>
-              </div>
+          {/* Role Capability Banner */}
+          <div className={`p-2.5 rounded-xl border text-xs ${
+            targetRole === 'admin'
+              ? 'bg-amber-50/70 border-amber-200 text-amber-950'
+              : 'bg-sky-50/70 border-sky-200 text-sky-950'
+          }`}>
+            <span className="font-bold block text-[11px] mb-0.5">
+              {targetRole === 'admin' ? '🛡️ Registrar & IT Administrator Clearance' : '👤 Student Self-Service Digital ID Wallet'}
+            </span>
+            <span className="text-[10px] opacity-80 leading-relaxed block">
+              {targetRole === 'admin'
+                ? 'Authorized for Mass Batch CSV enrollment, Registry database commit, card revocation & turnstile blacklisting, and authority signatures.'
+                : 'Authorized for card inspection, 3D tilt test, NFC turnstile gate access simulator, and personal card download. Registry edits are restricted.'}
+            </span>
+          </div>
 
-              {error && (
-                <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-bold">
-                  ⚠️ {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-bold">
-                  {success}
-                </div>
-              )}
-
-              <form onSubmit={handleAdminLogin} className="space-y-2.5">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block mb-1">
-                    University Admin ID / Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@apex.edu"
-                    className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block mb-1">
-                    Security Passkey / Password
-                  </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter passkey (demo: admin123)"
-                    className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 font-mono"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1 shadow-sm"
-                  >
-                    <Icons.Lock /> Authenticate Admin
-                  </button>
-                </div>
-              </form>
+          {/* Fast 1-Click Auto Fill Demo Chip */}
+          <div className="p-2.5 bg-stone-100 border border-stone-200 rounded-xl flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-mono text-stone-700 font-bold block">
+                {targetRole === 'admin' ? 'admin@apex.edu • pass: admin123' : 'student@apex.edu • pass: student123'}
+              </span>
+              <span className="text-[9px] text-stone-500">Quick-fill demo for presentation</span>
             </div>
-          ) : (
-            <div className="p-4 text-center space-y-2 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white mx-auto flex items-center justify-center font-bold text-lg">
-                ✓
-              </div>
-              <h4 className="text-xs font-black text-emerald-900 uppercase">
-                Admin Privileges Active
-              </h4>
-              <p className="text-[11px] text-emerald-700">
-                You have full clearance for Batch CSV Generation, Role Assignment, and Authority Signatures.
-              </p>
-              <button
-                onClick={onClose}
-                className="mt-2 px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition cursor-pointer"
-              >
-                Close & Return to Studio
-              </button>
+            <button
+              type="button"
+              onClick={() => handleQuickAutoFill(targetRole)}
+              className={`px-2.5 py-1 text-white text-xs font-bold rounded-lg transition cursor-pointer shadow-2xs shrink-0 ${
+                targetRole === 'admin' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-sky-600 hover:bg-sky-700'
+              }`}
+            >
+              ⚡ Auto-Fill {targetRole === 'admin' ? 'Admin' : 'Student'}
+            </button>
+          </div>
+
+          {error && (
+            <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700 font-bold">
+              ⚠️ {error}
             </div>
           )}
+
+          {success && (
+            <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-bold">
+              {success}
+            </div>
+          )}
+
+          <form onSubmit={handleLoginSubmit} className="space-y-2.5">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block mb-1">
+                {targetRole === 'admin' ? 'University Admin ID / Email' : 'Student Email / Roll ID'}
+              </label>
+              <input
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={targetRole === 'admin' ? 'admin@apex.edu' : 'student@apex.edu'}
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block mb-1">
+                Security Passkey / Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={targetRole === 'admin' ? 'Enter passkey (admin123)' : 'Enter passkey (student123)'}
+                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 font-mono"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+              >
+                <Icons.Lock /> Authenticate {targetRole === 'admin' ? 'Registrar' : 'Student'}
+              </button>
+            </div>
+          </form>
 
         </div>
       </div>
@@ -1327,6 +1385,9 @@ export default function App() {
   // Active Face Deduplication State (Initially empty)
   const [registeredFaceMap, setRegisteredFaceMap] = useState({});
   const [dedupWarning, setDedupWarning] = useState('');
+
+  // Blacklisted / Revoked Lost Credentials State
+  const [blacklistedCards, setBlacklistedCards] = useState([]);
 
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [isTurnstileOpen, setIsTurnstileOpen] = useState(false);
@@ -1532,26 +1593,68 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
-      const lines = text.split('\n').filter((l) => l.trim().length > 0);
+      const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
       if (lines.length <= 1) return;
 
+      // Extract and normalize header columns
+      const rawHeaders = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/["']/g, ''));
+      const col = (nameAliases) => rawHeaders.findIndex((h) => nameAliases.some((alias) => h.includes(alias)));
+
+      const idxName = col(['fullname', 'name', 'student']);
+      const idxRoll = col(['rollno', 'roll', 'id', 'reg']);
+      const idxRole = col(['role', 'type']);
+      const idxCourse = col(['course', 'designation', 'degree', 'program']);
+      const idxDept = col(['department', 'dept', 'branch']);
+      const idxBlood = col(['bloodgroup', 'blood']);
+      const idxValid = col(['validtill', 'valid', 'expiry']);
+      const idxPhone = col(['phone', 'mobile', 'contact']);
+      const idxAddress = col(['address', 'hostel']);
+      const idxPhoto = col(['photourl', 'photo', 'image', 'avatar', 'pic']);
+      const idxTheme = col(['themeid', 'theme']);
+
       const parsed = lines.slice(1).map((line, idx) => {
-        const [fullName, rollNo, course, dept, bloodGroup, phone, validTill] = line.split(',').map((c) => c.trim());
-        const themeId = DEPARTMENT_THEMES[idx % DEPARTMENT_THEMES.length].id;
-        const role = rollNo?.startsWith('FAC') ? 'faculty' : rollNo?.startsWith('PHD') ? 'scholar' : 'student';
+        // Robust CSV line parser handling quoted strings
+        const row = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map((val) => val.replace(/^"|"$/g, '').trim()) 
+          || line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+
+        const fullName = (idxName >= 0 && row[idxName]) ? row[idxName] : row[0] || `Cohort Member ${idx + 1}`;
+        const rollNo = (idxRoll >= 0 && row[idxRoll]) ? row[idxRoll] : row[1] || `24CS-${2000 + idx}`;
+        
+        let role = (idxRole >= 0 && row[idxRole]) ? row[idxRole].toLowerCase() : '';
+        if (!CAMPUS_ROLES.some((r) => r.id === role)) {
+          role = rollNo.startsWith('FAC') ? 'faculty' : rollNo.startsWith('PHD') ? 'scholar' : rollNo.startsWith('INT') ? 'trainee' : 'student';
+        }
+
+        const course = (idxCourse >= 0 && row[idxCourse]) ? row[idxCourse] : row[3] || 'Academic Candidate';
+        const department = (idxDept >= 0 && row[idxDept]) ? row[idxDept] : row[4] || 'Dept. of Computing & Intelligence';
+        const bloodGroup = (idxBlood >= 0 && row[idxBlood]) ? row[idxBlood] : row[5] || 'O+';
+        const validTill = (idxValid >= 0 && row[idxValid]) ? row[idxValid] : row[6] || '2028-06-30';
+        const phone = (idxPhone >= 0 && row[idxPhone]) ? row[idxPhone] : row[7] || '+1 (555) 000-0000';
+        const address = (idxAddress >= 0 && row[idxAddress]) ? row[idxAddress] : row[8] || 'University Campus, Hall A';
+
+        // Read image URL from CSV, or auto-generate a unique deterministic avatar if not provided
+        let photoUrl = (idxPhoto >= 0 && row[idxPhoto]) ? row[idxPhoto] : '';
+        if (!photoUrl || (!photoUrl.startsWith('http') && !photoUrl.startsWith('data:'))) {
+          photoUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName || rollNo)}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
+        }
+
+        const themeId = (idxTheme >= 0 && row[idxTheme] && DEPARTMENT_THEMES.some((t) => t.id === row[idxTheme]))
+          ? row[idxTheme]
+          : DEPARTMENT_THEMES[idx % DEPARTMENT_THEMES.length].id;
+
         return {
-          collegeName: student.collegeName,
-          tagline: student.tagline,
-          fullName: fullName || `Member ${idx + 1}`,
-          rollNo: rollNo || `24CS-${2000 + idx}`,
+          collegeName: student.collegeName || 'Apex Institute of Technology',
+          tagline: student.tagline || 'Excellence in Innovation & Research',
+          fullName,
+          rollNo,
           role,
-          course: course || 'Academic Member',
-          department: dept || 'Dept. of Computing',
-          bloodGroup: bloodGroup || 'O+',
-          validTill: validTill || '2028-06-30',
-          phone: phone || '+1 (555) 000-0000',
-          address: 'University Campus, Hall A',
-          photoUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=member-${idx}&backgroundColor=b6e3f4,c0aede,d1d4f9`,
+          course,
+          department,
+          bloodGroup,
+          validTill,
+          phone,
+          address,
+          photoUrl,
           themeId
         };
       });
@@ -1561,6 +1664,15 @@ export default function App() {
         setBatchIndex(0);
         setStudent(parsed[0]);
         if (parsed[0].themeId) setSelectedThemeId(parsed[0].themeId);
+
+        // Auto-register face hashes into biometric deduplication map
+        const newFaceEntries = {};
+        parsed.forEach((m) => {
+          const hash = computeSimpleImageHash(m.photoUrl);
+          newFaceEntries[hash] = { fullName: m.fullName, rollNo: m.rollNo };
+        });
+        setRegisteredFaceMap((prev) => ({ ...prev, ...newFaceEntries }));
+
         setIssuedRegistry((prev) => {
           const existingIds = new Set(prev.map((p) => p.rollNo));
           const newEntries = parsed.filter((p) => !existingIds.has(p.rollNo));
@@ -1573,9 +1685,26 @@ export default function App() {
 
   // Registry Management Handlers
   const handleSaveActiveToRegistry = () => {
+    if (authRole !== 'admin') {
+      alert('Access Restricted: Only Registrar Admin has the authority to commit credentials to the University Registry!');
+      setShowAuthModal(true);
+      return;
+    }
     const name = student.fullName.trim() || 'New Member';
     const roll = student.rollNo.trim() || `ID-${Math.floor(1000 + Math.random() * 9000)}`;
     const studentToSave = { ...student, fullName: name, rollNo: roll, themeId: selectedThemeId };
+
+    // Register face in deduplication map
+    if (studentToSave.photoUrl) {
+      const hash = computeSimpleImageHash(studentToSave.photoUrl);
+      setRegisteredFaceMap((prev) => ({
+        ...prev,
+        [hash]: { fullName: name, rollNo: roll }
+      }));
+    }
+
+    // Un-blacklist if re-issuing a replacement credential
+    setBlacklistedCards((prev) => prev.filter((id) => id !== roll));
 
     setIssuedRegistry((prev) => {
       const idx = prev.findIndex((p) => p.rollNo === roll);
@@ -1599,7 +1728,13 @@ export default function App() {
   };
 
   const handleRevokeFromRegistry = (rollNo) => {
-    if (window.confirm(`Revoke and remove credential record ${rollNo}?`)) {
+    if (authRole !== 'admin') {
+      alert('Access Restricted: Only Registrar Admin has the authority to revoke or blacklist credentials!');
+      setShowAuthModal(true);
+      return;
+    }
+    if (window.confirm(`Revoke and blacklist credential ${rollNo}? This card will be immediately disabled from all campus gates & turnstiles.`)) {
+      setBlacklistedCards((prev) => [...new Set([...prev, rollNo])]);
       setIssuedRegistry((prev) => {
         const deletedIndex = prev.findIndex((p) => p.rollNo === rollNo);
         const updated = prev.filter((p) => p.rollNo !== rollNo);
@@ -1622,15 +1757,15 @@ export default function App() {
             setStudent({
               collegeName: 'Apex Institute of Technology',
               tagline: 'Excellence in Innovation & Research',
-              fullName: 'New Member',
-              rollNo: '24XX-0000',
+              fullName: '',
+              rollNo: '',
               role: 'student',
-              course: 'Campus Credential Candidate',
+              course: '',
               department: 'Dept. of Computing & Intelligence',
-              bloodGroup: 'O+',
+              bloodGroup: 'B+',
               validTill: '2028-06-30',
-              phone: '+1 (555) 000-0000',
-              address: 'Campus Main Reception',
+              phone: '',
+              address: '',
               photoUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80'
             });
             setSelectedThemeId('cse');
@@ -1639,6 +1774,8 @@ export default function App() {
         }
         return updated;
       });
+      setRegistrySavedToast(`🚨 Blacklisted and revoked credential: ${rollNo}`);
+      setTimeout(() => setRegistrySavedToast(''), 3500);
     }
   };
 
@@ -2447,6 +2584,7 @@ export default function App() {
         onClose={() => setIsTurnstileOpen(false)}
         student={student}
         roleConfig={activeRoleConfig}
+        blacklistedCards={blacklistedCards}
       />
 
       {/* Campus SSO Auth Switcher Modal */}
