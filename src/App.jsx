@@ -1719,6 +1719,45 @@ export default function App() {
     setTimeout(() => setRegistrySavedToast(''), 3000);
   };
 
+  const handleSaveAllBatchToRegistry = () => {
+    if (authRole !== 'admin') {
+      alert('Access Restricted: Only Registrar Admin has the authority to commit credentials to the University Registry!');
+      setShowAuthModal(true);
+      return;
+    }
+    if (!batchStudents || batchStudents.length === 0) {
+      alert('No cohort roster loaded to save!');
+      return;
+    }
+
+    // Auto-register face hashes into biometric deduplication map
+    const newFaceEntries = {};
+    batchStudents.forEach((m) => {
+      if (m.photoUrl) {
+        const hash = computeSimpleImageHash(m.photoUrl);
+        newFaceEntries[hash] = { fullName: m.fullName, rollNo: m.rollNo };
+      }
+    });
+    setRegisteredFaceMap((prev) => ({ ...prev, ...newFaceEntries }));
+
+    // Un-blacklist if re-issuing
+    const rollNos = batchStudents.map((b) => b.rollNo);
+    setBlacklistedCards((prev) => prev.filter((id) => !rollNos.includes(id)));
+
+    setIssuedRegistry((prev) => {
+      const existingIds = new Set(prev.map((p) => p.rollNo));
+      const newEntries = batchStudents.filter((p) => !existingIds.has(p.rollNo));
+      const updated = prev.map((existing) => {
+        const match = batchStudents.find((b) => b.rollNo === existing.rollNo);
+        return match || existing;
+      });
+      return [...updated, ...newEntries];
+    });
+
+    setRegistrySavedToast(`✓ Successfully saved all ${batchStudents.length} cohort members to Registry Database!`);
+    setTimeout(() => setRegistrySavedToast(''), 3500);
+  };
+
   const handleLoadFromRegistry = (item) => {
     setStudent(item);
     if (item.themeId) {
@@ -1922,12 +1961,13 @@ export default function App() {
             </div>
 
             {/* University Role Picker & Save Button */}
-            {mode === 'single' && (
+            {(mode === 'single' || mode === 'batch') && (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleSaveActiveToRegistry}
                   className="px-2.5 py-1 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                  title="Save current card to the Registry database"
                 >
                   <span>💾 Save to Registry</span>
                 </button>
@@ -2224,26 +2264,56 @@ export default function App() {
                       </p>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-stone-200">
-                      <button
-                        type="button"
-                        disabled={batchIndex === 0}
-                        onClick={() => selectBatchStudent(Math.max(0, batchIndex - 1))}
-                        className="px-2 py-1 bg-stone-100 disabled:opacity-40 text-stone-700 text-xs font-bold rounded-lg"
-                      >
-                        ← Prev
-                      </button>
-                      <span className="text-xs font-bold text-stone-700">
-                        Member {batchIndex + 1} of {batchStudents.length}: <span className="text-sky-700 font-black">{student.fullName || 'Candidate'}</span> ({student.role})
-                      </span>
-                      <button
-                        type="button"
-                        disabled={batchIndex === batchStudents.length - 1}
-                        onClick={() => selectBatchStudent(Math.min(batchStudents.length - 1, batchIndex + 1))}
-                        className="px-2 py-1 bg-stone-100 disabled:opacity-40 text-stone-700 text-xs font-bold rounded-lg"
-                      >
-                        Next →
-                      </button>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between bg-white p-2 rounded-xl border border-stone-200">
+                        <button
+                          type="button"
+                          disabled={batchIndex === 0}
+                          onClick={() => selectBatchStudent(Math.max(0, batchIndex - 1))}
+                          className="px-2 py-1 bg-stone-100 disabled:opacity-40 text-stone-700 text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          ← Prev
+                        </button>
+                        <span className="text-xs font-bold text-stone-700">
+                          Member {batchIndex + 1} of {batchStudents.length}: <span className="text-sky-700 font-black">{student.fullName || 'Candidate'}</span> ({student.role})
+                        </span>
+                        <button
+                          type="button"
+                          disabled={batchIndex === batchStudents.length - 1}
+                          onClick={() => selectBatchStudent(Math.min(batchStudents.length - 1, batchIndex + 1))}
+                          className="px-2 py-1 bg-stone-100 disabled:opacity-40 text-stone-700 text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          Next →
+                        </button>
+                      </div>
+
+                      {/* Registry Synchronization Buttons */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-stone-200">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-stone-700">
+                          <span>🗂️ Registry Sync:</span>
+                          <span className="text-[10px] text-stone-400 font-normal">Commit cohort to institutional database</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveActiveToRegistry}
+                            className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                            title="Save currently previewed member to Registry Database"
+                          >
+                            <span>💾</span>
+                            <span>Save Current Member</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveAllBatchToRegistry}
+                            className="px-3 py-1 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                            title="Save all loaded cohort members to Registry Database"
+                          >
+                            <span>💾</span>
+                            <span>Save All ({batchStudents.length}) to Registry</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
