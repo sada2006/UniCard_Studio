@@ -845,6 +845,10 @@ const WebcamCaptureModal = ({ isOpen, onClose, onCapture }) => {
 const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
   const [turnstileState, setTurnstileState] = useState('ready');
   const [tapTimestamp, setTapTimestamp] = useState(null);
+  const [terminalLocation, setTerminalLocation] = useState('LH-101 (Lecture Hall Classroom)');
+  const [tapCount, setTapCount] = useState(0);
+  const [physicalHeadcount, setPhysicalHeadcount] = useState('');
+  const [showHeadcountAudit, setShowHeadcountAudit] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -859,6 +863,7 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
     setTimeout(() => {
       playMetroBeep('success');
       setTurnstileState('granted');
+      setTapCount((c) => c + 1);
     }, 350);
   };
 
@@ -873,27 +878,49 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
 
   if (!isOpen) return null;
 
+  const parsedHeadcount = parseInt(physicalHeadcount, 10);
+  const hasHeadcount = !isNaN(parsedHeadcount);
+  const isMatch = hasHeadcount && parsedHeadcount === tapCount;
+  const isMoreSeated = hasHeadcount && parsedHeadcount > tapCount;
+  const isMoreTaps = hasHeadcount && parsedHeadcount < tapCount;
+
   return (
     <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-stone-200 overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[92vh] flex flex-col">
         
-        <div className="bg-stone-900 px-5 py-3 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full ${
+        {/* Terminal Header */}
+        <div className="bg-stone-900 px-5 py-3 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
               turnstileState === 'granted' ? 'bg-emerald-400' : turnstileState === 'fraud' ? 'bg-rose-500 animate-ping' : 'bg-sky-400 animate-pulse'
             }`} />
-            <span className="text-xs font-black uppercase tracking-wider font-mono">
-              APEX TRANSIT TURNSTILE • GATE-04 (NORTH ENTRANCE)
-            </span>
+            <select
+              value={terminalLocation}
+              onChange={(e) => setTerminalLocation(e.target.value)}
+              className="bg-stone-800 text-stone-200 text-xs font-black uppercase tracking-wider rounded-lg px-2 py-1 border border-stone-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-sky-400 truncate"
+            >
+              <option value="LH-101 (Lecture Hall Classroom)">LH-101 (Lecture Hall Classroom)</option>
+              <option value="CS-LAB-03 (Computing Lab Door)">CS-LAB-03 (Computing Lab Door)</option>
+              <option value="GATE-04 (North Campus Turnstile)">GATE-04 (North Campus Turnstile)</option>
+              <option value="MAIN-GATE-01 (Campus Main Gate)">MAIN-GATE-01 (Campus Main Gate)</option>
+            </select>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-white text-xs font-bold px-2 py-1 rounded-lg">✕</button>
+
+          <div className="flex items-center gap-2">
+            <div className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/30 text-sky-300 font-mono text-[11px] font-bold shrink-0">
+              📊 Taps: <strong className="text-white text-xs">{tapCount}</strong>
+            </div>
+            <button onClick={onClose} className="text-stone-400 hover:text-white text-xs font-bold px-2 py-1 rounded-lg cursor-pointer">✕</button>
+          </div>
         </div>
 
-        <div className="p-6 flex flex-col items-center space-y-4 text-center">
+        {/* Modal Body */}
+        <div className="p-5 flex flex-col items-center space-y-3.5 text-center overflow-y-auto flex-1">
           
+          {/* Interactive RFID NFC Tap Pad */}
           <div
             onClick={handleNormalTap}
-            className={`relative w-44 h-44 rounded-3xl border-4 transition-all duration-300 flex flex-col items-center justify-center cursor-pointer select-none group shadow-inner ${
+            className={`relative w-40 h-40 rounded-3xl border-4 transition-all duration-300 flex flex-col items-center justify-center cursor-pointer select-none group shadow-inner ${
               turnstileState === 'granted'
                 ? 'border-emerald-500 bg-emerald-50 ring-8 ring-emerald-500/20'
                 : turnstileState === 'fraud'
@@ -901,8 +928,8 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
                 : 'border-stone-800 bg-stone-900 hover:border-sky-500 ring-4 ring-stone-200'
             }`}
           >
-            <div className="text-white mb-2">
-              <svg className={`w-14 h-14 mx-auto transition-transform ${
+            <div className="text-white mb-1.5">
+              <svg className={`w-12 h-12 mx-auto transition-transform ${
                 turnstileState === 'granted' ? 'text-emerald-600 scale-110' : turnstileState === 'fraud' ? 'text-rose-600 scale-110' : 'text-sky-400 group-hover:scale-110'
               }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
@@ -911,23 +938,24 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
             <span className={`text-[11px] font-black uppercase tracking-widest ${
               turnstileState === 'granted' ? 'text-emerald-800' : turnstileState === 'fraud' ? 'text-rose-800' : 'text-white'
             }`}>
-              {turnstileState === 'granted' ? 'GATE UNLOCKED' : turnstileState === 'fraud' ? 'ACCESS BLOCKED' : 'TAP CARD HERE'}
+              {turnstileState === 'granted' ? 'SCANNER UNLOCKED' : turnstileState === 'fraud' ? 'ACCESS BLOCKED' : 'TAP CARD HERE'}
             </span>
-            <span className={`text-[9px] font-mono mt-1 ${
+            <span className={`text-[9px] font-mono mt-0.5 ${
               turnstileState === 'granted' ? 'text-emerald-600' : turnstileState === 'fraud' ? 'text-rose-600' : 'text-stone-400'
             }`}>
               13.56 MHz RFID / NFC
             </span>
           </div>
 
+          {/* Terminal Console Feedback */}
           <div className="w-full bg-stone-100 p-3 rounded-xl border border-stone-200 font-mono text-left text-xs space-y-1">
             <div className="flex items-center justify-between text-stone-500 text-[10px]">
-              <span>TERMINAL: NXP-GATE-04</span>
+              <span className="truncate">LOC: {terminalLocation}</span>
               <span>TIME: {tapTimestamp || '19:42:00'}</span>
             </div>
             
             {turnstileState === 'ready' && (
-              <div className="py-2 text-center text-stone-600">
+              <div className="py-1 text-center text-stone-600">
                 <span className="font-bold block">Terminal Ready for Smart Card Tap</span>
                 <span className="text-[10px] text-stone-400">Hold PVC Smart Badge within 4 cm of sensor</span>
               </div>
@@ -937,13 +965,13 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
               <div className="p-2 bg-emerald-100/70 border border-emerald-300 rounded-lg text-emerald-900">
                 <div className="flex items-center justify-between font-black text-xs">
                   <span>🟢 ACCESS GRANTED (BEEP!)</span>
-                  <span>TURNSTILE UNLOCKED</span>
+                  <span>TAP #{tapCount} LOGGED</span>
                 </div>
                 <div className="mt-1 text-[10px] text-emerald-800 flex justify-between">
                   <span>{student.fullName || 'Authorized Member'} ({roleConfig.badgeTitle})</span>
                   <span>ID: {student.rollNo || 'ID-ACTIVE'}</span>
                 </div>
-                <div className="text-[9px] text-emerald-700">Mifare DESFire UID: 04:A2:8B:19:3F • Entry Logged</div>
+                <div className="text-[9px] text-emerald-700">Mifare DESFire UID: 04:A2:8B:19:3F • Entry Logged to {terminalLocation.split(' ')[0]}</div>
               </div>
             )}
 
@@ -961,13 +989,87 @@ const MetroTurnstileModal = ({ isOpen, onClose, student, roleConfig }) => {
             )}
           </div>
 
-          <div className="w-full grid grid-cols-2 gap-2 pt-2 border-t border-stone-100">
+          {/* Teacher / Proctor Headcount Audit Module */}
+          <div className="w-full bg-stone-50 p-3 rounded-xl border border-stone-200 text-left space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-stone-800 uppercase tracking-wider">
+                  Teacher Headcount Verification
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[8px] font-bold uppercase">
+                  Anti-Proxy
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTapCount(0);
+                  setPhysicalHeadcount('');
+                }}
+                className="text-[10.5px] font-bold text-stone-400 hover:text-stone-700 flex items-center gap-1 transition cursor-pointer"
+                title="Reset taps counter for next period"
+              >
+                <span>🔄</span> Reset Session
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-semibold text-stone-600 whitespace-nowrap">
+                Physical Seated Count:
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={physicalHeadcount}
+                onChange={(e) => setPhysicalHeadcount(e.target.value)}
+                placeholder="e.g. 24"
+                className="w-20 px-2 py-1 text-xs font-mono font-bold bg-white border border-stone-300 rounded-lg text-stone-800 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              />
+              <span className="text-[11px] font-mono text-stone-500">
+                vs Scanner Taps: <strong className="text-stone-900 font-bold">{tapCount}</strong>
+              </span>
+            </div>
+
+            {/* Validation Feedback */}
+            {hasHeadcount && (
+              <div className={`p-2 rounded-lg text-[10.5px] font-medium border ${
+                isMatch
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : isMoreSeated
+                  ? 'bg-amber-50 border-amber-300 text-amber-900'
+                  : 'bg-rose-50 border-rose-300 text-rose-900'
+              }`}>
+                {isMatch && (
+                  <div className="flex items-center gap-1 font-bold">
+                    <span>✅</span>
+                    <span>100% Verified: {tapCount} physical students match exactly {tapCount} RFID card taps. Zero proxy attendance.</span>
+                  </div>
+                )}
+                {isMoreSeated && (
+                  <div>
+                    <span className="font-bold block">⚠️ Headcount Discrepancy (+{parsedHeadcount - tapCount} untracked):</span>
+                    <span>{parsedHeadcount} students are in the room, but only {tapCount} tapped! {parsedHeadcount - tapCount} student(s) bypassed the door scanner.</span>
+                  </div>
+                )}
+                {isMoreTaps && (
+                  <div>
+                    <span className="font-bold block">🚨 Proxy Attendance Alert (+{tapCount - parsedHeadcount} ghost taps):</span>
+                    <span>{tapCount} card taps logged, but only {parsedHeadcount} students physically seated! {tapCount - parsedHeadcount} student(s) had someone else tap their ID card.</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Action Simulator Buttons */}
+          <div className="w-full grid grid-cols-2 gap-2 pt-1 border-t border-stone-100">
             <button
               onClick={handleNormalTap}
               className="px-3 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
             >
               <Icons.Check />
-              <span>Simulate Normal Tap</span>
+              <span>Simulate Normal Tap (+1)</span>
             </button>
             <button
               onClick={handleProxyFraudTest}
